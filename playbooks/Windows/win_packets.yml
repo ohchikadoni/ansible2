@@ -1,0 +1,38 @@
+---
+- name: Install 7zip
+  
+  hosts: win
+  tasks:
+  - name: Install 7zip and use a file version for the installation check
+    win_package:
+      path: https://www.7-zip.org/a/7z2000.exe
+      product_id: 7-Zip
+      arguments: /S
+      creates_path: C:\Program Files\7-Zip\7z.exe
+      creates_version: 16.04
+      state: present
+
+  - name: Ensure Chocolatey itself is installed and use internal repo as source
+    win_chocolatey:
+      name: chocolatey
+      source: http://someserver/chocolatey
+
+
+  - name: Install Wireshark from a pre configured source (win_chocolatey_source)
+    win_chocolatey:
+      name: wireshark
+      source: internal_repo
+
+  - name: Install multiple packages
+    win_chocolatey:
+      name:
+      - putty
+      - googlechrome
+      - vcredist140
+      - 7zip
+      - openssh
+      - brave
+      - greenshot
+      - rambox
+      - firefox
+      state: present

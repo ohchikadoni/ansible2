@@ -1,0 +1,55 @@
+---
+- hosts: alle
+  become: true
+ 
+
+  tasks:
+    - ping: ~
+
+    - name: Update APT package manager repositories cache
+      become: true
+      apt:
+        update_cache: yes
+    
+    - name: Upgrade installed packages
+      become: true
+      apt:
+        upgrade: dist
+
+    - name: List installed and updated packages
+      shell: aptitude search '~U' | wc -l
+
+    - name: Show Output
+      debug: msg="{{ result.stdout_lines }}"
+
+
+    - name: Upgrade
+      raw: apt-get upgrade -y
+
+    - name: Install packages
+      apt:
+        name:
+        - python3
+        - htop
+        - tcpdump
+        - whois
+        - aptitude
+        - net-tools
+
+        state: latest
+        cache_valid_time: 3600
+
+    - name: Check if a reboot is needed for Ubuntu machines
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+
+    - name: Reboot the Ubuntu server
+      reboot:
+        msg: "Reboot initiated by Ansible due to kernel updates"
+        #connect_timeout: 5
+        #reboot_timeout: 300
+        #pre_reboot_delay: 0
+        #post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
+

@@ -1,0 +1,7 @@
+- hosts: linuxserver
+  tasks:
+  - name: Ansible create file with content example
+    copy:
+      dest: "/home/str/.bashrc"
+      content: |
+        alias ts='date "+%Y%m%d_%H%M%S"'

@@ -1,0 +1,18 @@
+---
+- name: Install all security, critical, and rollup updates without a scheduled task
+  
+  hosts: win
+  tasks:
+  - name: Security Updates
+    win_updates:
+    register: update_result
+
+  - name: reboot
+    win_reboot:
+    when: update_result.reboot_required
+  
+  - debug:
+      msg:
+      - "ansible_distribution {{ hostvars[inventory_hostname].ansible_distribution }}"
+      - "major version {{ hostvars[inventory_hostname].ansible_distribution_major_version }}"
+      - "version {{ hostvars[inventory_hostname].ansible_distribution_version }}"

@@ -1,0 +1,28 @@
+---
+- hosts: all
+  become: yes
+  tasks: 
+#  - ping: ~
+#  - name: Update APT package manager repositories cache
+#    become: true
+#    apt:
+#      update_cache: yes
+#  - name: Upgrade installed packages
+#    become: true
+#    apt:
+#      upgrade: dist
+
+  - name: Install packages
+    apt:
+      name:
+      - python3
+      - htop
+      - tcpdump
+      - whois
+      - aptitude	
+
+      state: latest
+      cache_valid_time: 3600    # update cache if more than an hour old
+ 
+  - name: Reboot
+    reboot:

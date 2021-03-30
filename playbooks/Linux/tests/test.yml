@@ -1,0 +1,38 @@
+---
+- hosts: 192.168.30.76
+  become: yes
+  become_method: sudo #su for debian
+  gather_facts: False
+
+  tasks:
+  - name: apt-get update
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+
+  - name: Ensure localisation files for 'en_US.UTF-8' are available
+    locale_gen:
+      name: "en_US.UTF-8"
+      state: present
+
+  - name: Ensure localisation files for 'en_US.UTF-8' are available
+    locale_gen:
+      name: "en_US.UTF-8"
+      state: present
+
+  - name: Get current locale and language configuration
+    command: localectl status
+    register: locale_status
+    changed_when: false
+
+  - name: Parse 'LANG' from current locale and language configuration
+    set_fact:
+      locale_lang: "{{ locale_status.stdout | regex_search('LANG=([^\n]+)', '\\1') | first }}"
+
+  - name: Parse 'LANGUAGE' from current locale and language configuration
+    set_fact:
+      locale_language: "{{ locale_status.stdout | regex_search('LANGUAGE=([^\n]+)', '\\1') | default([locale_lang], true) | first }}"
+
+  - name: Configure locale to 'en_US.UTF-8' and language to 'en_US.UTF-8'
+    command: localectl set-locale LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8
+#    changed_when: locale_lang != config_system_locale or locale_language != config_system_language

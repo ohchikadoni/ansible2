@@ -1,0 +1,70 @@
+
+- hosts: 192.168.20.30
+  #user: ansible
+  become: yes
+#  become_method: su #su for debian
+  gather_facts: True
+  vars:
+    websavedirectory: /www
+    websitename: test.ch    
+  tasks:
+
+  - name: install all updates
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+    ignore_errors: yes
+    register: update_result
+
+  - name: Upgrade
+    raw: apt-get upgrade -y
+
+  - name: Install Apache2
+    apt:
+      name: apache2
+      update_cache: yes
+      state: latest
+
+  - name: Check if Website-Directory-Exists
+    stat:
+      path: "{{ websavedirectory }}"
+    register: register_name
+
+  - name: Ansible insert a line before example
+    when: register_name.stat.exists
+    blockinfile:
+      path: /etc/apache2/apache2.conf
+      insertafter: "# access here, or in any related virtual host."
+      block: | 
+        <Directory {{ websavedirectory }}>
+               Options FollowSymLinks
+               AllowOverride None
+               Require all granted
+        </Directory>
+
+  - name: Copy-Default virtual host to new website...
+    command: cp /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-available/{{ websitename }}.conf
+
+
+  - name: Add ServerName line
+    lineinfile:
+     path: /etc/apache2/sites-available/{{ websitename }}.conf
+     regexp: "ServerName"
+     line: "        ServerName {{ websitename }}"
+
+  - name: Add DocumentRoot line
+    lineinfile:
+     path: /etc/apache2/sites-available/{{ websitename }}.conf
+     regexp: "DocumentRoot"
+     line: "        DocumentRoot /{{ websavedirectory }}"
+
+  - name: Delete all in sites-enable
+    shell: rm -rf /etc/apache2/sites-enabled/*
+
+  - name: Enable Site
+    command: a2ensite {{websitename}}.conf
+
+  handlers:
+    - name: restart apache2
+      service: name=apache2 state=restarted  
+      

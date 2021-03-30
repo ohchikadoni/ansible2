@@ -1,0 +1,11 @@
+- hosts: all
+  tasks:
+  - name: Enable Ipv6
+    copy:
+      dest: "/etc/network/interfaces"
+      content: |
+        iface ens160 inet6 static
+        pre-up modprobe ipv6
+        address IPv6-IP-Address
+        netmask 64
+        gateway IPv6-IP-Gateway-Address

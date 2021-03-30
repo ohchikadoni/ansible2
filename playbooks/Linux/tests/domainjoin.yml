@@ -1,0 +1,162 @@
+# Dieses Playbook joint eine Linux Debian/Ubuntu basierte Maschine einer Windows Domain.
+# Wichtig ! Vor jedem benutzen muss die Domain und die IP-Adressen Konfiguration geändert werden !!!
+
+--- 
+- hosts: ldap
+  become: yes
+  tasks: 
+  - ping: ~
+  - name: Update APT package manager repositories cache
+    become: true
+    apt:
+      update_cache: yes
+
+#  - name: Upgrade all packages to the latest version
+#    apt:
+#      name: "*"
+#      state: latest   
+
+  - name: Install packages
+    apt:
+      name:
+      - python3
+      - htop
+      - tcpdump
+      - whois
+      - aptitude	
+      - ntp
+      - samba
+      - smbclient
+      - samba-common
+      - krb5-user
+      - python-pexpect
+      - winbind
+      state: latest
+      cache_valid_time: 3600  
+   
+  
+  - name: Restart service ntp, in all cases
+    service:
+      name: ntp
+      state: restarted
+
+  - name: This command will start samba
+    shell:
+      cmd: /etc/init.d/smbd start
+  
+
+  - name: Copy file with owner and permissions
+    copy:
+      src: /etc/network/interfaces
+      dest: /etc/network/interfaces.orig
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: krb5.conf File configure
+    copy:
+      dest: "/etc/network/interfaces"
+      content: |
+        # This file describes the network interfaces available on your system
+        # and how to activate them. For more information, see interfaces(5).
+        source /etc/network/interfaces.d/*
+        # The loopback network interface
+        auto lo
+        iface lo inet loopback
+        auto lo ens160
+        iface ens160 inet static
+        address 192.168.20.26
+        gateway 192.168.20.1
+        dns-nameservers 192.168.20.10 8.8.8.8
+        netmask 255.255.255.0
+ 
+  - name: This command will restart the machine
+    reboot:
+        
+
+  - name: Copy file with owner and permissions
+    copy:
+      src: /etc/krb5.conf
+      dest: /etc/krb5.conf.orig
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: krb5.conf File configure
+    copy:
+      dest: "/etc/krb5.conf"
+      content: |
+        [libdefaults]
+         default_realm = OHCHIKADONI.CH
+         dns_lookup_realm = false
+         dns_lookup_kdc = false
+         ticket_lifetime = 24h
+         renew_lifetime = 7d
+         forwardable = true
+        [realms]
+         OHCHIKADONI.CH = {
+         kdc = doc.ohchikadoni.ch
+         admin_server = doc.ohchikadoni.ch
+        }
+        [domain_realm]
+         .ohchikadoni.ch = OHCHIKADONI.CH
+         ohchikadoni.ch = OHCHIKADONI.CH
+
+
+  - name: This command will clear kerberos ticket lists
+    shell:
+      cmd: kdestroy
+
+  - name: This command will get a kerberos ticket   
+    shell:
+      cmd: echo "str112829$" | kinit Administrator@OHCHIKADONI.CH  
+
+
+  - name: Copy File and permission smb.conf
+    copy:
+      src: /etc/samba/smb.conf
+      dest: /etc/samba/smb.conf.orig
+      owner: root
+      group: root
+      mode: '0644'
+
+
+  - name: smb.conf File configure
+    copy:
+      dest: "/etc/samba/smb.conf"
+      content: |
+        [global]
+        workgroup = OHCHIKADONI
+        realm = ohchikadoni.ch
+        security = ADS
+        password server = doc.ohchikadoni.ch
+        domain logons = no
+        template homedir = /home/%D/%U
+        template shell = /bin/bash
+        winbind enum groups = yes
+        winbind enum users = yes
+        winbind use default domain = yes
+        domain master = no
+        local master = no
+        prefered master = no
+        os level = 0
+        idmap config *:backend = tdb
+        idmap config *:range = 11000-20000
+        idmap config DOMAIN:backend = rid
+        idmap config DOMAIN:range=10000000-19000000
+
+  - name: This command will restart samba              
+    shell:
+      cmd: /etc/init.d/smbd restart
+          
+
+  - name: Case insensitive password string match
+    become: true
+    expect:
+        # Use your Active Directory user and domain here
+      command: net ads join -U Administrator@ohchikadoni.ch
+      responses:
+          # Use your Active Directory user password here
+        (?i)password: "str112829$"
+      # Don't show passwords in your log
+    no_log: false

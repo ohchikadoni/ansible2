@@ -1,0 +1,119 @@
+
+- hosts: 192.168.20.30
+  vars_prompt:
+    - name: domain
+      prompt: Geben Sie ihren Zonennamen an
+
+    - name: reversezone
+      prompt: Geben Sie ihren Reversezonennamen an
+
+    - name: ip
+      promt: Geben Sie die IP des Nameservers an
+
+  #user: ansible
+  become: yes
+#  become_method: su #su for debian
+  gather_facts: True
+
+  tasks:
+
+  - name: Upgrade
+    raw: apt-get upgrade -y
+
+  - name: Install Bind9
+    apt:
+      name: bind9
+      update_cache: yes
+      state: latest
+
+  - name: Check if Bind9 is working.
+    command: nslookup google.com 127.0.0.1
+    register: ns
+  - debug: var=ns      
+
+  - name: Ansible add Forwarders
+    blockinfile:
+      path: /etc/bind/named.conf.options
+      insertafter: "// };"
+      block: |2 
+                forwarders {
+                     8.8.8.8;
+                     8.8.4.4;
+                };
+
+  - name: Check if Bind9 is working.
+    command: nslookup ubuntu.com 192.168.20.30
+    register: ns2
+  - debug: var=ns2
+
+  - name: Create Reverse & Forward Folder
+    file:
+      path: /etc/bind/reverse
+      state: directory
+
+  - name: Create Reverse & Forward Folder
+    file:
+      path: /etc/bind/forward
+      state: directory
+
+  - name: Ansible add Zone to named.conf.local
+    blockinfile:
+      path: /etc/bind/named.conf.local
+      insertafter: "/etc/bind/zones.rfc1918"
+      block: |
+             zone "{{ domain }}" {
+                     type master;
+                     file "/etc/bind/forward/db.{{ domain }}";
+             };
+             
+             zone "{{ reversezone }}" {
+                     type master;
+                     file "/etc/bind/reverse/db.{{ reversezone }}";
+             };           
+
+  - name: Copy-Default db.local file to new zone-file
+    command: cp /etc/bind/db.local /etc/bind/forward/db.{{ domain }}
+
+  - name: Copy-Default db.local file to new zone-file
+    command: cp /etc/bind/db.0 /etc/bind/reverse/db.{{ reversezone }}
+
+  - replace:
+      path: "/etc/bind/forward/db.{{ domain }}"
+      regexp: "localhost. root.localhost."
+      replace: "{{ domain }}. root.{{ domain }}."
+
+  - replace:
+      path: "/etc/bind/reverse/db.{{ reversezone }}"
+      regexp: "localhost. root.localhost."
+      replace: "{{ domain }}. root.{{ domain }}."
+
+  
+  - name: Check if DNS can resolve new domain
+    command: nslookup {{ domain }} localhost
+    register: ns3
+  - debug: var=ns3
+
+  - replace:
+      path: "/etc/bind/forward/db.{{ domain }}"
+      regexp: "localhost."
+      replace: "{{ domain }}."
+
+  - replace:
+      path: "/etc/bind/reverse/db.{{ reversezone }}"
+      regexp: "localhost."
+      replace: "{{ domain }}."
+
+  - replace:
+      path: "/etc/bind/forward/db.{{ domain }}"
+      regexp: "127.0.0.1"
+      replace: "{{ ip }}"
+
+  - name: Add Pointer Entry
+    lineinfile:
+     path: "/etc/bind/reverse/db.{{ reversezone }}"
+     line: "# 12	IN	PTR	FQDN_OF_SERVER"
+
+  - name: Restart service bind9, in all cases
+    service:
+      name: bind9
+      state: restarted

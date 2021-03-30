@@ -1,0 +1,9 @@
+---
+# tasks file for isc-dhcp-server
+
+
+- name: Install Opensshserver
+  apt:
+    name: openssh-server
+    state: present
+  tags: openssh-server

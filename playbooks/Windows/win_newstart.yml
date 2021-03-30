@@ -1,0 +1,9 @@
+---
+- name: Windows Maschine neustarten
+  
+  hosts: win
+  tasks:
+  - name: Reboot a slow machine that might have lots of updates to apply
+    win_reboot:
+      reboot_timeout: 3600
+

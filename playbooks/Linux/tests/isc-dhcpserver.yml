@@ -1,0 +1,60 @@
+# DHCP-Server
+
+--- 
+- hosts: dhcpserver
+  become: yes
+  tasks: 
+  - ping: ~
+
+  - name: Update APT package manager repositories cache
+    become: true
+    apt:
+      update_cache: yes
+
+  - name: Upgrade all packages to the latest version
+    apt:
+      name: "*"
+      state: latest   
+
+  - name: Install packages
+    apt:
+      name:
+      - isc-dhcp-server
+      state: latest
+      cache_valid_time: 3600
+
+  - name: dhcpd.conf File configure
+    copy:
+      dest: "/etc/dhcp/dhcpd.conf"
+      content: |
+        # Sample /etc/dhcpd.conf
+        # (add your comments here) 
+        authoritative;
+        default-lease-time 600;
+        max-lease-time 7200;
+        option subnet-mask 255.255.255.0;
+        option broadcast-address 192.168.30.255;
+        option routers 192.168.30.1;
+        option domain-name-servers 192.168.30.20, 8.8.8.8;
+        option domain-name "ohchikadoni.ch";
+
+        subnet 192.168.30.0 netmask 255.255.255.0 {
+        range 192.168.30.50 192.168.30.100;
+        interface ens160;
+        } 
+
+
+  - name: Restart service isc-dhcp-server, in all cases
+    service:
+      name: isc-dhcp-server
+      state: restarted
+
+  - name: /etc/default/isc-dhcp-server File configure
+    copy:
+      dest: "/etc/default/isc-dhcp-server"
+      content: |
+        INTERFACESv4="ens160"
+
+
+  - name: This command will restart the machine
+    reboot:

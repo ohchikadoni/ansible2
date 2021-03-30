@@ -1,0 +1,96 @@
+- hosts: test
+  tasks:
+ 
+  - name: Upgrade all packages to the latest version
+    apt:
+      name: "*"
+      state: latest
+  
+  - name: Update all packages to the latest version
+    apt:
+      upgrade: dist
+
+  - name: Run the equivalent of "apt-get update" as a separate step
+    apt:
+      update_cache: yes
+
+  - name: Remove dependencies that are no longer required
+    apt:
+      autoremove: yes
+  
+  - name: Install packages
+    apt:
+      name:
+      - python3
+      - htop
+      - tcpdump
+      - whois
+      - aptitude
+      - software-properties-common
+      - docker.io
+      - nginx
+      - python3-certbot-nginx
+
+      state: latest
+      cache_valid_time: 3600
+
+  - name: Check if a reboot is needed for Ubuntu machines
+    register: reboot_required_file
+    stat: path=/var/run/reboot-required get_md5=no
+
+  - name: Reboot the Ubuntu server
+    reboot:
+      msg: "Reboot initiated by Ansible due to kernel updates"
+      connect_timeout: 5
+      reboot_timeout: 300
+      pre_reboot_delay: 0
+      post_reboot_delay: 30
+      test_command: uptime
+    when: reboot_required_file.stat.exists
+
+  
+  - name: Generate Synapse Config
+    shell: docker run -it --rm -v /var/docker_data/matrix:/data -e SYNAPSE_SERVER_NAME=matrix.ohchikadoni.ch -e SYNAPSE_REPORT_STATS=yes matrixdotorg/synapse:latest generate
+
+  - name: Start Docker
+    shell: docker run -d --name matrix --restart=always -v /var/docker_data/matrix:/data -p 8008:8008 matrixdotorg/synapse:latest
+
+  - name: Nginx-Konfig for Matrix-Container
+    copy:
+      dest: "/etc/nginx/sites-available/default"
+      content: |
+        server {
+            listen 80;
+            server_name locahost;
+            return 301 https://$host$request_uri;
+        }
+
+        server {
+            listen 443 ssl;
+            server_name localhost;
+            ssl_certificate /etc/letsencrypt/live/test.ohchikadoni.ch/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/test.ohchikadoni.ch/privkey.pem;
+            location /_matrix {
+                proxy_pass http://localhost:8008;
+                proxy_set_header X-Forwarded-For $remote_addr;
+                client_max_body_size 10M;
+            }
+        }
+
+        server {
+            listen 8448 ssl;
+            server_name localhost;
+            ssl_certificate /etc/letsencrypt/live/test.ohchikadoni.ch/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/test.ohchikadoni.ch/privkey.pem;
+            location / {
+                proxy_pass http://localhost:8008;
+                proxy_set_header X-Forwarded-For $remote_addr;
+            }
+        }
+
+
+  - name: restart nginx
+    shell: systemctl restart nginx
+
+#  - name: Delete nginx/default
+#    shell: rm -f /etc/nginx/sites-available/default

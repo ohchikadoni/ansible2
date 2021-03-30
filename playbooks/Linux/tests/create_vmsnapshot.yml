@@ -1,0 +1,24 @@
+---
+- hosts: esxi.ohchikadoni.ch
+  
+  tasks:
+
+    - name: vCenter Login
+      uri:
+        url: "https://esxi.ohchikadoni.ch/ui/#/host"
+        force_basic_auth: yes
+        method: POST
+        user: "root"
+        password: "str112829$hallo"
+        status_code: 200
+        validate_certs: no
+      register: login
+
+    - name: Get hosts from vCenter
+      uri:
+        url: "https://esxi.ohchikadoni.ch/ui/#/host/"
+        force_basic_auth: yes
+        validate_certs: no
+        headers:
+          Cookie: "{{login.set_cookie}}"
+      register: vchosts

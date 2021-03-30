@@ -1,0 +1,20 @@
+
+- hosts: 192.168.20.30
+  vars_prompt:
+
+    - name: website
+      prompt: "What is your website?"
+      private: no
+ 
+    - name: country
+      prompt: "Enter Country Name?"
+      private: no
+
+#user: ansible
+  become: yes
+#  become_method: su #su for debian
+  gather_facts: True
+  tasks:
+
+  - debug:
+      msg: 'Webseiten Name: {{ website }}. Heimatland: {{ country }}'

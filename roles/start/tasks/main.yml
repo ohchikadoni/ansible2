@@ -1,0 +1,79 @@
+#Playbook mit -Kku ansible ausführen --> ansible-playbook standalone-playbooks/ansible-debian-host-from-iso.yml -Kku ansible
+# single playbook to enable ansible clients, works well on new servers installed via 16.04 iso or Debian 9 iso
+# ansible-playbook  standalone-playbooks/new-ansible-host-iso1604.yml --ask-pass -u ansible  --limit bla  (--ask-become-pass)
+# ansible-playbook -i hosts standalone-playbooks/new-ansible-host-from-iso.yml --limit bogus* -u ansible --ask-pass
+# oder
+# ansible-playbook -u ansible -k -i hosts standalone-playbooks/new-ansible-host-from-iso.yml --limit eve*
+---
+- hosts: all
+  become: true
+  gather_facts: True
+  vars: 
+    createuser: 'root'
+
+  tasks:
+    - ping: ~
+
+#    - name: install all updates
+#      apt:
+#        upgrade: dist
+#        update_cache: yes
+#        autoremove: yes
+#        autoclean: yes
+#      register: result
+#      ignore_errors: yes
+
+    - name: do updates
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+
+    - name: Upgrade
+      raw: apt-get upgrade -y
+
+
+    - Install python
+      apt:
+        name: python
+        state: latest
+        update_cache: no
+
+
+    - name: Install packages
+      apt: pkg={{ packages }} state=latest
+        vars:
+        - python3
+        - htop
+        - tcpdump
+        - whois
+        - aptitude
+        - net-tools
+        - nano
+        - nmap
+        - tcpdump
+        - sudo 
+      ignore_errors: yes
+
+    - name: Authorized_Key_upload
+      authorized_key: user={{ createuser }}
+        key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCwJh2AJqa6Xh3sD2rOzhcsJqn5JdrDDZdb59TXG0yFn7Ib1VKQXVkjr4/Dz8LnyJqyuPjVQKQNiUsPGTzHVlGo2tQGsESKpHaswcVyue8qvRN0pMaTzDf3sKWSCZyCQXfZ22X7poykyhihTg1ualGOboXVD71SlNilL8v26ZnXc+46h68UnCY7v9B7PkAlqNuxPQj4PiGfUzd6omhNPsDxIAjbghhJaSXRs2B76AkO3bbvKaRGGUTAT6O+UZUZ2Qg0po6Kg/Hp4u5cQUVMrQdXW6dzfdqdDC2m1lxcEjy//gDIqHW1Gu/YhCVnF7JcirJbOZR/K1TqSW+boeDSL1XXjzELbA5a36hbnQ2cxOgaLHoWZ1vyrivQRXu7F/gc6Ne83+501a/FAS/WZeRi0IoqL0pHV9iMgstHZeJYWyiAjvkgr7mAQ5LcdZHkgm7jhNUtBkmDR7gp07aO6oJq2gFbfGVdMgDrbywFsHvGqXuyBP4Yr4mXCs6xEXqJZJv8q89420RN0PbTJEyjlLew26UofKN4aC27suUgSqnG36zizx+l6CLwpBzqu2htmCIeRhYsklEDAcnhLZFRj8vcL9kPYElbXQ2Lfk3GP1AOc9VNu0O9Y9Ey2EoDE9Z3zhUgumcGuopeXyDoBGvoSv/pJvFcwJqzANJGe3mBlALKgCYApw== root@ansible"
+        path='/root/.ssh/authorized_keys'
+        managed_dir=no
+      ignore_errors: yes
+      
+
+    - name: Check if a reboot is needed for Ubuntu machines
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+
+    - name: Reboot the Ubuntu server
+      reboot:
+        msg: "Reboot initiated by Ansible due to kernel updates"
+        #connect_timeout: 5
+        #reboot_timeout: 300
+        #pre_reboot_delay: 0
+        #post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
+

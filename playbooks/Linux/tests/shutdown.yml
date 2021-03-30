@@ -1,0 +1,10 @@
+- hosts:
+    - mail.ohchikadoni.ch
+ 
+  tasks:
+    - debug: var=ansible_all_ipv4_addresses  
+    - mail:
+        port: 25
+        to: str@nts.ch
+        subject: Ansible-report
+        body: 'System {{ ansible_hostname }} Salüüü, Test, Test, Test'

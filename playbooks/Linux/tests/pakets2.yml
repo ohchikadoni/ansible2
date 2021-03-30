@@ -1,0 +1,32 @@
+---
+- hosts: all
+  become: yes
+  tasks: 
+  - ping: ~
+  - name: Update APT package manager repositories cache
+    become: true
+    apt:
+      update_cache: yes
+  - name: Upgrade installed packages
+    become: true
+    apt:
+      upgrade: dist
+
+  - name: Install packages
+    apt:
+      name:
+      - python3
+      - htop
+      - tcpdump
+      - whois
+      - aptitude	
+
+      state: latest
+      cache_valid_time: 3600    # update cache if more than an hour old
+ 
+  - name: check if a reboot is required
+    shell: "[ -f /var/run/reboot-required ]"
+    failed_when: False
+    register: reboot_required
+    changed_when: reboot_required.rc == 0
+    notify: reboot
